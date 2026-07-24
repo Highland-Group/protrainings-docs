@@ -41,18 +41,16 @@ export default async function Layout({ children }: LayoutProps<'/docs'>) {
       );
     }
 
-    // Keyed section: show only the matching root folder.
+    // Keyed section: show only the matching root folder, matched by $id.
     return fullTree.children.filter(
       (node): node is PageTree.Folder =>
         node.type === 'folder' &&
         !!(node as PageTree.Folder).root &&
-        !!((node as PageTree.Folder).index?.url ?? '').startsWith(
-          `${docsRoute}/${activeSection.key}`
-        )
+        (node as PageTree.Folder & { $id?: string }).$id === activeSection.key
     );
   })();
 
-  const tree: PageTree.Root = { ...fullTree, children: filteredChildren };
+  const tree: PageTree.Root = { type: 'root', name: '', children: filteredChildren };
 
   return (
     <DocsLayout tree={tree} tabs={tabOptions} {...baseOptions()}>
