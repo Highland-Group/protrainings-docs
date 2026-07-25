@@ -1,5 +1,5 @@
 {
   "title": "Design System",
   "root": true,
-  "pages": ["index"]
+  "pages": ["index", "color-tokens"]
 }

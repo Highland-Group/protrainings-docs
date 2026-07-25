@@ -1,0 +1,124 @@
+---
+title: Color Tokens
+description: Where colors are defined and managed.
+owner: drew
+status: draft
+---
+
+This section covers design tokens, component guidelines, and usage patterns for the design system.
+
+## The three-tier pipeline
+
+Tokens move through three tiers, each with a different owner and a different reason to change:
+
+1. **Primitive** — raw color values. No meaning, no role, just palette. Shared across every consumer, including the Rails LMS.
+2. **Semantic** — role-based names (`surface`, `accent`, `focusRing`...) mapped to primitives, scoped per surface. This is the tier this page documents.
+3. **Component** — shadcn/Base UI components, consuming semantic names only, never a primitive value directly. These are the elements we will use to design blocks, layouts and page templates within the CMS.
+
+<Callout type="warn" title="Primitive layer — not yet canonical">
+The prototype token object currently defines its own placeholder primitives inline. The architecture calls for a single shared CSS custom property file (OKLCH values), consumed by this pipeline. When color palette is approved in the Brand workstream, the primitives here need to import from that canonical file rather than redeclare their own copy — otherwise two sources of truth can drift.
+</Callout>
+
+## Surfaces
+
+A **surface** is a section-level mood a designer or editor can assign to blocks when composing pages in PayloadCMS.
+
+Four surfaces should be designed as distinct color groupings that can coexist elegantly within a layout — they are not required to be calculated values from one another. 
+
+
+| Surface | Role |
+|---|---|
+| **Base** | Default page background. Most body content lives here. |
+| **Tint** | Alternative brand colors — use |
+| **Shade** |Darker brand colors, paired opposite of Tint. *Role still open — see Known gaps below.* |
+| **Bold** | Saturated, high-emphasis surface — CTA banners, promo strips. |
+
+
+### How Surfaces Work
+
+Every surface must resolve the same set of names. A component only ever references the name on the left — never a raw color input, never a check for which surface it's in.
+
+| Token | Guarantees |
+|---|---|
+| `surface` | Section background |
+| `surfaceFg` | Default text — passes contrast against `surface` |
+| `border` | Dividers, card outlines, input borders |
+| `muted` | Recessed background — nested cards, subtle panels |
+| `mutedFg` | Secondary/caption text on `muted` |
+| `accent` | Primary CTA fill, links, emphasis |
+| `accentFg` | Text/icon color on `accent` |
+| `accentHover` / `accentActive` | Interactive states — resolved per surface, not derived by darkening a shared value |
+| `focusRing` | Visible-focus outline — set independently per surface, not inherited from Base |
+| `success` / `successFg` | Positive state feedback |
+| `warning` / `warningFg` | Caution state feedback |
+| `destructive` / `destructiveFg` | **Reserved, unresolved.** See Known gaps. |
+
+### Defaults + per-surface overrides
+
+Each surface is a unique set of colors that are designed to go together. However, surfaces often share common colors and sub-brands may require more or less variance. 
+
+To keep surface design manageable we use global defaults that resolve every value for surfaces. This way each unique surface need only define values that differentiate it. 
+
+```ts
+const defaults = {
+  accent: primitives.blue[500],
+  accentHover: primitives.blue[600],
+  focusRing: primitives.blue[600],
+  success: primitives.green[600],
+  warning: primitives.amber[600],
+  // ...
+};
+
+export const surfaces = {
+  base: { ...defaults, surface: primitives.gray[0], /* identity tokens only */ },
+  tint: { ...defaults, surface: "#f2f6ff", /* identity tokens only */ },
+  shade: { ...defaults, surface: primitives.gray[50], /* identity tokens only */ },
+  bold: { surface: primitives.blue[500], accent: "#ffffff", /* nearly everything, explicit */ },
+};
+```
+
+**Rule of thumb:** interactive states brighten on dark surfaces, they don't darken — the same direction the browser's default focus ring would move if you inverted a page. A hover state that's simply "darker" reliably fails contrast once the surface itself is dark.
+
+This structure isn't about saving keystrokes. It's what makes the pipeline portable across brands with very different palettes: a brand with one dominant hue shares most of `defaults`; a brand with four unrelated saturated hues per surface will barely use `defaults` at all, and every surface looks more like Bold does today. Both are the same file shape — sharing is discovered per brand, never re-architected per brand.
+
+### Popover — global, not per-surface
+
+Popover/dialog/tooltip content renders through a portal, appended outside the DOM subtree of whatever triggered it. That severs the normal cascade a surface wrapper depends on, so "popover resolves to its ambient surface" isn't free — it would require a `SurfaceContext` plus stamping `data-surface` onto portaled content, a real engineering cost. Absent a concrete need, popover is one fixed global pair:
+
+```ts
+export const globalTokens = {
+  popover: primitives.gray[0],
+  popoverFg: primitives.gray[900],
+};
+```
+
+## Component layer — how a token becomes a rendered color
+
+No component ever branches on which surface it's in. The chain:
+
+```
+[data-surface="deep"] { --accent: #8fb8ff; ... }   ← CSS custom property, set per surface
+        ↓
+@theme inline { --color-accent: var(--accent); }   ← Tailwind v4 theme
+        ↓
+bg-accent, text-accent-fg                          ← generated utility classes
+        ↓
+cva({ variants: { default: "bg-accent text-accent-fg hover:bg-accent-hover" }})  ← shadcn component
+```
+
+The same `<Button variant="default">` renders correctly under any `data-surface` ancestor with zero conditional logic — it asks for `var(--accent)`, and cascade resolves it based on nesting.
+
+## Extension discipline
+
+Additional surfaces or state tokens require a **named functional trigger** — a real, discussed need — not a visual preference. Two concrete examples of the right kind of trigger:
+
+- `success`/`warning` were added because real page content (the For Business account-status messaging) already describes status states that need to render.
+- `destructive` is named but deliberately left unresolved, gated on the native-vs-HubSpot-forms decision — if forms stay embedded, this may never need a value on the marketing site.
+
+Any future addition should be proposed and discussed the same way, not added because it "would be nice to have."
+
+## Known gaps
+
+- **Shade's functional role is not yet defined.** The name and identity tokens exist, but nothing currently distinguishes *when* an editor should reach for Shade instead of Base. A candidate (neutral, denser surface for high-volume templated content — state certification pages, course listings — as distinct from Tint's brand-forward storytelling role) has been discussed but not confirmed.
+- **`destructive`/`destructiveFg`** have no resolved values pending the forms decision.
+- **Primitive layer** still self-contained placeholder values; needs to import from the canonical shared OKLCH file before this leaves prototyping.
