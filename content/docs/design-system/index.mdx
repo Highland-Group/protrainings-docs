@@ -1,8 +1,190 @@
 ---
-title: Overview
-description: Overview of the design system documentation section.
+title: Design System Overview
+description: Scope, structure, and authoring boundaries for the ProTrainings design system, v1.
 owner: drew
 status: draft
 ---
 
-This section covers design tokens, component guidelines, and usage patterns for the design system.
+# Design System Overview
+
+This document describes what the design system is, what it governs, and where its boundaries sit for v1. It is the reference the rest of the Foundation documentation resolves against — component docs, block specs, and content-model docs assume the structures described here.
+
+## What this system is for
+
+Two things, in priority order:
+
+1. **A shared visual contract across systems that cannot share a build.** The marketing site (Next.js) and the LMS (Rails) are separate applications with separate toolchains. They cannot share a Tailwind config, a component library, or a bundler. They can both read the same CSS file. The primitive layer is authored as plain CSS custom properties specifically so that it is consumable by anything that can load a stylesheet.
+
+2. **A governed surface for brand expression.** Brand decisions — color, type, shape — are authored once, in one place, and resolved everywhere downstream. Changing a brand decision is a change to the token layer, not a sweep through component code.
+
+Everything else the system does is downstream of those two.
+
+## The three tiers
+
+The pipeline has three layers with distinct owners and distinct rates of change.
+
+### Tier 1 — Primitives
+
+Raw values. Color ramps, type ramp steps, radius steps. No semantics, no usage guidance, no opinion about where a value goes.
+
+- **Format:** a plain CSS custom property file. No build step required to consume it.
+- **Namespace:** `--pt-*` prefixed, flat, stable.
+- **Consumers:** the Next.js marketing site, the Rails LMS, and any future property (CPR.io, UK, pet CPR).
+- **Change rate:** rare. Once two consumers depend on this namespace, it is a governed interface — renaming or removing a primitive is a breaking change to systems outside this repo.
+
+The primitive namespace is the multi-brand seam. A second brand is a second primitive file resolving the same names to different values. Nothing downstream changes.
+
+### Tier 2 — Semantics
+
+Meaning assigned to values. `--surface`, `--surface-fg`, `--border`, `--accent`, and so on. This is where a raw color becomes "the thing text sits on."
+
+- **Format:** Tailwind v4 `@theme inline`, which exposes semantic tokens as utility classes without a JS config file.
+- **Consumers:** the Next.js site only. Rails consumes primitives directly and maps them into its own asset pipeline as that team sees fit.
+- **Change rate:** occasional. Adding a semantic token is additive and cheap; changing what an existing one means is not.
+
+Tailwind v4 is used here as a *consumer* of the token layer, not as the token layer. The CSS custom properties are the source of truth; `@theme inline` reflects them into Tailwind's utility generation. This is the reason v4 was selected over v3 — v3's JS config would have made Tailwind the source of truth and broken the cross-consumer contract.
+
+### Tier 3 — Components
+
+Component-local decisions: variant mappings, size scales, internal composition.
+
+- **Stack:** shadcn/ui on Base UI primitives, with `cva` for variant mapping.
+- **Ownership model:** copy-into-repo. Components live in the ProTrainings codebase and are modified there. There is no upstream dependency to fight with, and no version bump that can change the rendering of a shipped page.
+- **Rule:** components reference semantic tokens only. A component that references a primitive directly has bypassed the contract and will not re-theme correctly under a second brand.
+
+## What v1 authors, and what it inherits
+
+v1 authors **color, typography, and radii**. Everything else — spacing, breakpoints, shadow, z-index, opacity, container widths — uses what Tailwind ships with.
+
+This is deliberate. Those three are where brand decisions actually live; a designed spacing scale that differs from Tailwind's would be a preference expressed as a system, and it would need to be authored, documented, and defended before anyone knows what the block inventory requires. Tailwind's defaults are coherent, well-tested, and already understood by every engineer who will touch this codebase. Overriding them later is a token-layer change that does not break existing callsites.
+
+The practical effect is that component work can begin now against a stable spacing vocabulary while the authored surface is still resolving.
+
+**Authored in v1:**
+
+| Namespace | Status |
+|---|---|
+| Color primitives (OKLCH ramps) | Structure defined, values pending |
+| Surface token set | Defined — see below |
+| Type ramp (steps, weights, line-height) | Structure pending |
+| Type families | Pending brand workstream |
+| Radii scale | Structure pending |
+
+**Inherited from Tailwind v4 defaults in v1:** spacing, breakpoints, shadow, z-index, opacity, container sizing.
+
+A note on typography specifically: the *structure* of the ramp — how many steps, what each step is named, what line-height and measure pair with it — is a system decision and can be authored ahead of the brand platform landing. The *values* — families, exact ramp ratios — are brand-dependent and may arrive from the brand workstream after component work begins. These are separable. Authoring the structure now with placeholder families is not rework; it is the seam.
+
+## The surface contract
+
+The central structural decision in the system.
+
+Rather than components specifying background and foreground colors as a paired decision at each callsite, a **surface** is declared on a wrapping element and every token inside it resolves against that surface.
+
+```html
+<section data-surface="deep">
+  <!-- everything here resolves deep's tokens -->
+</section>
+```
+
+Surfaces are declared at block boundaries. A block declares its surface; components inside it inherit. Components do not declare surfaces.
+
+### The named surfaces
+
+| Surface | Role |
+|---|---|
+| `base` | The default page ground |
+| `tint` | A hued lift — brand-adjacent, still light |
+| `shade` | A neutral recess — the paired opposite of tint |
+| `deep` | Dark ground for high-contrast sections |
+| `bold` | Saturated brand ground for emphasis moments |
+
+Names are **role-based, not appearance-based.** "Deep" describes what the surface does in a layout, not what color it is. This matters because it prevents conflation with dark mode, which is a separate axis (see below), and because it survives a brand change — a second brand's `deep` may be a different color entirely and the name still holds.
+
+`shade` is a distinct hue-neutral surface, not a mathematical darkening of `base`. It earns its name as tint's paired opposite, not as an operation.
+
+### The token set
+
+Every surface resolves the same set. This is the contract: a component can reference `--accent` without knowing which surface it is sitting on.
+
+| Token | Purpose |
+|---|---|
+| `--surface` | Background of the surface |
+| `--surface-fg` | Default text color on the surface |
+| `--border` | Divider and outline color |
+| `--muted` | Recessed background within the surface |
+| `--muted-fg` | Secondary text |
+| `--accent` | Primary interactive color |
+| `--accent-fg` | Text on accent |
+| `--accent-hover` | Accent, hovered |
+| `--accent-active` | Accent, pressed |
+| `--focus-ring` | Focus indicator |
+| `--success` / `--success-fg` | Success state |
+| `--warning` / `--warning-fg` | Warning state |
+
+Interactive states and focus rings are **per-surface explicit values, not global modifiers.** A darkening function applied to an accent that already sits on a dark ground produces a worse result, not a consistent one. On dark surfaces, hover brightens; on light surfaces, hover darkens. Encoding this as explicit values per surface removes an entire class of contrast failure and makes accessibility checkable by reading the token file.
+
+### Surface-owns-its-foreground
+
+Text inherits `--surface-fg` from its containing surface. Nothing specifies a text color and a background color as a pair at the point of use.
+
+This is what makes the system cheap to operate. There is no per-callsite pairing discipline to enforce, no review step checking whether someone put dark text on a dark block, and no combinatorial matrix of valid pairings to document. Contrast is verified once per surface, in the token file.
+
+## Global and reserved tokens
+
+### Popover — global, not per-surface
+
+`--popover` and `--popover-fg` are a single global pair.
+
+Base UI portals popover, dialog, and tooltip content outside the DOM subtree of the element that triggered it. That severs the CSS cascade a surface wrapper depends on. Making these per-surface would require a React context plus a portal-stamping mechanism to re-establish the surface at the portal root — real machinery with no current concrete need. Overlay content renders on one consistent ground.
+
+Revisit only if a named, real case appears.
+
+### Destructive — reserved, unresolved
+
+`--destructive` and `--destructive-fg` are declared in the type contract but have no values.
+
+Whether error and destructive states are in scope depends on the **native forms vs. HubSpot-embedded forms** decision. If forms render natively, validation and error states are ours to design and token. If forms are HubSpot embeds, their styling surface is constrained and the destructive namespace may not be exercised at all in v1.
+
+Reserving the names costs nothing and keeps the decision open. Authoring the values before the forms decision would be speculative.
+
+### Motion — reserved
+
+Named motion tokens (easing curves, duration steps) are a reserved namespace, not authored in v1.
+
+The ownership split when it is authored: **brand owns motion's character** — the easing and pace that make movement feel like this brand — expressed as named semantic tokens. **UX/UI owns orchestration** — what moves, in what order, in response to what.
+
+## Explicitly out of scope for v1
+
+- **Dark mode.** ProTrainings is not implementing it. It is a separate multiplicative axis: five surfaces × two appearance modes is ten token sets, not five. The system is structured so that adding it later is a token-layer expansion rather than a rewrite, but it is not built, not tested, and not costed.
+- **Authored spacing, shadow, and z-index scales.** Tailwind defaults, as described above.
+- **A published component package.** Components live in the consuming repo. There is no versioned distributable.
+- **LMS component parity.** The LMS consumes primitives. It does not consume components, and visual parity between marketing and product surfaces beyond the shared color and type foundation is not in v1 scope.
+
+## Consumption rules
+
+For anyone building against this system:
+
+1. Components reference **semantic tokens only**. Never primitives, never raw values.
+2. Surfaces are declared at **block boundaries**. A block sets `data-surface`; components inside inherit.
+3. No hardcoded color values in component code. If a needed color does not exist as a token, that is a gap in the token layer to be resolved there, not patched at the callsite.
+4. Adding a semantic token is additive and low-risk. Changing what an existing one means is a breaking change and goes through review.
+5. Renaming or removing a **primitive** is a breaking change to systems outside this repo, including the LMS.
+
+## Multi-brand posture
+
+The system is architected for multiple brands from the outset, but v1 implements one.
+
+The mechanism: a second brand is a second primitive file. Semantic tokens, component tokens, and `cva` variant configs are unchanged — a single static variant config, with CSS custom properties re-scoped per brand at the token layer. Separate variant configs are only warranted if a brand adds or removes a variant *value* entirely, which is a different kind of change than re-coloring.
+
+This is reserved as a seam, not built as a feature. No multi-brand machinery exists in v1 beyond the namespace discipline that makes it cheap later.
+
+## Open items
+
+| Item | Blocks | Owner |
+|---|---|---|
+| Color primitive values (OKLCH ramps) | Contrast verification, all surface authoring | Design / brand |
+| Type families | Type ramp values | Brand workstream |
+| Type ramp structure | Component typography | Design |
+| Radii scale values | Component shape | Design |
+| Native vs. HubSpot forms | Destructive token namespace | Client decision |
+| Spanish content keep/drop | Type ramp diacritic and measure considerations | Client decision |

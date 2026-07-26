@@ -36,6 +36,15 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
   return (
     <DocsPage toc={page.data.toc} full={page.data.full}>
       <DocsTitle>{page.data.title}</DocsTitle>
+      <div className="flex items-center gap-2 -mt-2">
+        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
+          page.data.status === 'draft' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' :
+          page.data.status === 'reviewed' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
+          'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+        }`}>
+          {page.data.status}
+        </span>
+      </div>
       <DocsDescription className="mb-0">{page.data.description}</DocsDescription>
       <div className="flex flex-row gap-2 items-center border-b pb-6">
         <MarkdownCopyButton markdownUrl={markdownUrl} />
