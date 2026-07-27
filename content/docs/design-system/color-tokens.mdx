@@ -7,13 +7,6 @@ status: draft
 
 This section covers design tokens, component guidelines, and usage patterns for the design system.
 
-## The three-tier pipeline
-
-Tokens move through three tiers, each with a different owner and a different reason to change:
-
-1. **Primitive** — raw color values. No meaning, no role, just palette. Shared across every consumer, including the Rails LMS.
-2. **Semantic** — role-based names (`surface`, `accent`, `focusRing`...) mapped to primitives, scoped per surface. This is the tier this page documents.
-3. **Component** — shadcn/Base UI components, consuming semantic names only, never a primitive value directly. These are the elements we will use to design blocks, layouts and page templates within the CMS.
 
 <Callout type="warn" title="Primitive layer — not yet canonical">
 The prototype token object currently defines its own placeholder primitives inline. The architecture calls for a single shared CSS custom property file (OKLCH values), consumed by this pipeline. When color palette is approved in the Brand workstream, the primitives here need to import from that canonical file rather than redeclare their own copy — otherwise two sources of truth can drift.

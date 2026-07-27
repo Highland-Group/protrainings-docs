@@ -11,13 +11,11 @@ This document describes what the design system is, what it governs, and where it
 
 ## What this system is for
 
-Two things, in priority order:
 
 1. **A shared visual contract across systems that cannot share a build.** The marketing site (Next.js) and the LMS (Rails) are separate applications with separate toolchains. They cannot share a Tailwind config, a component library, or a bundler. They can both read the same CSS file. The primitive layer is authored as plain CSS custom properties specifically so that it is consumable by anything that can load a stylesheet.
 
-2. **A governed surface for brand expression.** Brand decisions — color, type, shape — are authored once, in one place, and resolved everywhere downstream. Changing a brand decision is a change to the token layer, not a sweep through component code.
+2. **A governed surface for brand expression.** Brand decisions — color, typography, shape — are authored once, in one place, and resolved everywhere downstream. Changing a brand decision is a change to the token layer, not a sweep through component code.
 
-Everything else the system does is downstream of those two.
 
 ## The three tiers
 
@@ -25,21 +23,21 @@ The pipeline has three layers with distinct owners and distinct rates of change.
 
 ### Tier 1 — Primitives
 
-Raw values. Color ramps, type ramp steps, radius steps. No semantics, no usage guidance, no opinion about where a value goes.
+Raw values. Color ramps, type ramp steps, radius steps. Think of the primitives layer as a place where every possible brand style is documented. 
 
-- **Format:** a plain CSS custom property file. No build step required to consume it.
+- **Format:** a plain CSS custom property file.
 - **Namespace:** `--pt-*` prefixed, flat, stable.
-- **Consumers:** the Next.js marketing site, the Rails LMS, and any future property (CPR.io, UK, pet CPR).
+- **Consumers:** the Next.js marketing site is the primary consumer in v1, however the system is designed to scale across future site instances and create a shared primitive layer for use in the LMS. 
 - **Change rate:** rare. Once two consumers depend on this namespace, it is a governed interface — renaming or removing a primitive is a breaking change to systems outside this repo.
 
-The primitive namespace is the multi-brand seam. A second brand is a second primitive file resolving the same names to different values. Nothing downstream changes.
+The primitive namespace is the multi-brand seam. A second brand is a second primitive file resolving the same names to different values, nothing else needs to change. 
 
 ### Tier 2 — Semantics
 
-Meaning assigned to values. `--surface`, `--surface-fg`, `--border`, `--accent`, and so on. This is where a raw color becomes "the thing text sits on."
+Meaning assigned to values. `--surface`, `--surface-fg`, `--border`, `--accent`, and so on. This is where primitive tokens are assigned a role. 
 
 - **Format:** Tailwind v4 `@theme inline`, which exposes semantic tokens as utility classes without a JS config file.
-- **Consumers:** the Next.js site only. Rails consumes primitives directly and maps them into its own asset pipeline as that team sees fit.
+- **Consumers:** the Next.js marketing site. Rails consumes primitives directly and maps them into its own asset pipeline as that team sees fit.
 - **Change rate:** occasional. Adding a semantic token is additive and cheap; changing what an existing one means is not.
 
 Tailwind v4 is used here as a *consumer* of the token layer, not as the token layer. The CSS custom properties are the source of truth; `@theme inline` reflects them into Tailwind's utility generation. This is the reason v4 was selected over v3 — v3's JS config would have made Tailwind the source of truth and broken the cross-consumer contract.
@@ -56,9 +54,9 @@ Component-local decisions: variant mappings, size scales, internal composition.
 
 v1 authors **color, typography, and radii**. Everything else — spacing, breakpoints, shadow, z-index, opacity, container widths — uses what Tailwind ships with.
 
-This is deliberate. Those three are where brand decisions actually live; a designed spacing scale that differs from Tailwind's would be a preference expressed as a system, and it would need to be authored, documented, and defended before anyone knows what the block inventory requires. Tailwind's defaults are coherent, well-tested, and already understood by every engineer who will touch this codebase. Overriding them later is a token-layer change that does not break existing callsites.
+This scopes authored decisions to what brand has opinions on. Tailwind's defaults, well-tested, and already understood by every engineer who will touch this codebase. Overriding them later is a token-layer change that does not break existing callsites.
 
-The practical effect is that component work can begin now against a stable spacing vocabulary while the authored surface is still resolving.
+The practical effect is that component work can begin now against a stable spacing vocabulary while the authored surface is still being defined.
 
 **Authored in v1:**
 
@@ -155,10 +153,10 @@ The ownership split when it is authored: **brand owns motion's character** — t
 
 ## Explicitly out of scope for v1
 
-- **Dark mode.** ProTrainings is not implementing it. It is a separate multiplicative axis: five surfaces × two appearance modes is ten token sets, not five. The system is structured so that adding it later is a token-layer expansion rather than a rewrite, but it is not built, not tested, and not costed.
+- **Dark mode.** ProTrainings does not utilize it today, we will reserve as a future feature add. 
 - **Authored spacing, shadow, and z-index scales.** Tailwind defaults, as described above.
 - **A published component package.** Components live in the consuming repo. There is no versioned distributable.
-- **LMS component parity.** The LMS consumes primitives. It does not consume components, and visual parity between marketing and product surfaces beyond the shared color and type foundation is not in v1 scope.
+- **LMS component parity.** The LMS does not consume components in v1. The CMS site and the app share primitives and Tailwind v4 as a common consumer.
 
 ## Consumption rules
 
@@ -166,9 +164,9 @@ For anyone building against this system:
 
 1. Components reference **semantic tokens only**. Never primitives, never raw values.
 2. Surfaces are declared at **block boundaries**. A block sets `data-surface`; components inside inherit.
-3. No hardcoded color values in component code. If a needed color does not exist as a token, that is a gap in the token layer to be resolved there, not patched at the callsite.
+3. No hardcoded color values in component code. If a needed color does not exist as a token, it needs to be resolved at the token layer, not patched at the callsite.
 4. Adding a semantic token is additive and low-risk. Changing what an existing one means is a breaking change and goes through review.
-5. Renaming or removing a **primitive** is a breaking change to systems outside this repo, including the LMS.
+5. Renaming or removing a **primitive** is a breaking change to systems outside this repo, which may include the LMS.
 
 ## Multi-brand posture
 
