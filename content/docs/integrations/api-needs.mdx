@@ -1,7 +1,96 @@
 ---
-title: Integration requirements
-description: Tracking open reqs for API integration per Chris' doc
+title: Course Data — Ownership Split
+description: Field-level source-of-truth assignment between the LMS and Payload, and the conditional render model for course formats.
 owner: chris
 status: draft
 ---
 
+
+## Field assignments
+
+| Field | Bucket | Compliance | Notes |
+|---|---|---|---|
+| `id` *(requested)* | LMS | — | Join key. Must be immutable. |
+| `course_name` | CMS | Review | Public-facing marketing name. Precedent already exists: `internal_name` diverges from `course_name` in 18 of 34 records, meaning the LMS is already carrying a marketing name layer. Names asserting a credential ("BLS Provider") need review before edit. |
+| `internal_name` | LMS | — | Operational. Mirrored into Payload read-only as an admin reference so editors can identify the source record. Never rendered publicly. |
+| `short_description` | CMS | — | Card and listing copy. Currently unreliable as a description — identical to `course_name` in 5 of 34 records. Treat migration values as a starting point, not content. |
+| `full_description` | CMS | Review | See "Description splitting" below. This is the highest-value field for SEO and the one most likely to carry compliance-relevant claims. |
+| `category` | Split | — | LMS owns **membership** (which category a course belongs to). Payload owns the **category entity** — display label, ordering, description, SEO metadata for the category page. Requires typed category IDs; see below. |
+| `occupations` | CMS | — | Currently ungoverned: 134 distinct values across 34 courses, 9 courses empty, one value carrying a trailing non-breaking space. Seed from LMS values, then curate and govern in Payload. Drives filtering and occupation-targeted landing pages, which are a marketing concern the LMS has no reason to hold. |
+| `url` | CMS | — | **Ownership transfer, not documentation of current state.** Today Rails owns course URLs. After replatform the marketing site owns its own URL space, because redirect management and SEO preservation live there. The LMS retains its own internal paths for its own pages. |
+| `price` | LMS | Yes | Transactional truth. Never editable. Needs numeric value plus currency code alongside the display string — `"$1,497"` cannot be parsed reliably and schema.org requires a number. |
+| `valid_for` | LMS | Yes | Certification validity is a regulatory claim. |
+| `ce_credits` | LMS | Yes | Accreditation claim. See the zero-versus-null problem below. |
+| `course_length` | LMS | — | Semantics vary by format — 33 records are minute-level durations, one is `"2 days"` (the classroom course). Needs a structured duration where meaningful and an explicit display string where not. |
+| `class_format` | LMS | — | Operational truth about delivery. Three values present: Classroom or Online (25), Online Only (8), Classroom Only (1). Drives the render model below. |
+
+### Requested but not in the payload
+
+All LMS-owned when they arrive: audio language, captions language, video count, student manual URL, proof of completion, certification card price, qualifications. Reviews are LMS-owned and were absent from both the payload and the question sheet.
+
+### Payload-only, no LMS counterpart
+
+Owned by Payload outright, no sync: SEO title and meta description, hero and open-graph imagery, selected testimonials, curated related courses, FAQ blocks, trust badges, and any block-composed content on the course page.
+
+## Two data problems that block the split
+
+**Category is not typed.** `category` is a bare string, and one record reads `"Pet First Aid, Instructor"` — multi-value by comma concatenation. The URL taxonomy disagrees with it independently: `/courses/pets/first-aid` and `/courses/cpr/students` at three segments, `/courses/hazcom` at two. Until categories are IDs with a defined cardinality (is membership one-to-many or many-to-many?), the Course Category typed route has no reliable query key, and the template-times-query model that the Buildout estimate rests on does not hold.
+
+**Zero and null are indistinguishable.** Three courses report `ce_credits: "0.0"` and one reports `price: "$0"`. There is no way to tell "this course genuinely awards no CE credits" from "nobody filled this in." That ambiguity is fatal to the render model below, which decides what to display based on what data exists. Explicit nulls, or a boolean alongside, is a small API ask with outsized consequences.
+
+## Description splitting
+
+`full_description` runs from 32 to 2,813 characters and mixes marketing narrative with learning objectives. Those are different content types with different owners: the narrative is CMS-owned marketing copy; objectives are compliance-adjacent and follow the ILCOR revision cycle.
+
+Two options. Ask whether the LMS can expose them as separate fields, in which case the split is clean and objectives stay LMS-owned. Or treat separation as a one-time editorial task during migration, in which case objectives become CMS content and drift from the LMS on the next guidelines revision — which is the failure mode the compliance attribute exists to prevent.
+
+The first is materially better. Worth asking before assuming the second.
+
+Good news on remediation cost: the field contains no HTML tags at all across 34 records. Nine contain `&nbsp;`, two contain other entities, ten contain newlines. That is a trivial transform, and it is the first hard evidence on the rich-text remediation variable.
+
+## Conditional render model
+
+The question is how the course template handles Pet CPR Instructor today without needing rework for formats that do not exist yet, on brands that do not exist yet.
+
+**Do not branch on `class_format`.** Branching on an enum value means every new format value requires editing every template, and the marginal cost of a fourth or fifth format lands entirely in engineering. It also does not survive the brand boundary — a UK or Pet CPR property with a different format mix would need its own conditionals.
+
+Use two mechanisms instead.
+
+### Capability presence for regions
+
+Most of the page is optional regions gated on whether their data exists. No video count, no video section. No student manual URL, no download block. No CE credits, no accreditation badge. No online enrollment path, no self-serve purchase block. A classroom course carries schedule and location data, so the schedule block renders.
+
+This works because the condition is data rather than code. A new format that composes from existing capabilities requires no template change, the behavior is testable directly from a payload, and Nate can reason about why a block did or did not appear without reading the template.
+
+It depends entirely on absence being unambiguous — which is why the zero-versus-null problem above is a blocker rather than a nuisance.
+
+### A discriminator for the primary action
+
+Some decisions are not presence questions. A classroom course's primary CTA is *find a session*; an online course's is *start now*; a future cohort-based course might be *join the waitlist*. That is semantics, not data availability, and it needs a small closed set of action modes.
+
+Keep the set deliberately small — two or three — and let capability flags handle everything else. This is what preserves the one-template-times-query model rather than fragmenting into per-format templates, which is the distinction the estimate depends on.
+
+### Across brands
+
+Brand-specific requirements should arrive as additive optional fields consumed by the same capability mechanism, not as brand conditionals in the template. A UK accreditation body becomes a field that renders a block when present. The template does not learn what a brand is.
+
+## API asks that fall out of this
+
+1. Immutable course ID on every record.
+2. Typed category IDs with defined cardinality, and resolution of the category-versus-URL taxonomy disagreement.
+3. Explicit null versus zero for `ce_credits` and `price`.
+4. Structured duration where meaningful, explicit display string where not.
+5. Numeric price plus currency code alongside the formatted string.
+6. Learning objectives separable from marketing description, if the LMS can support it.
+7. Whether `occupations` is used operationally in the LMS or is purely descriptive.
+
+## Open decisions
+
+| Decision | Blocks | Owner |
+|---|---|---|
+| ID exposed and guaranteed immutable | The entire split | Mac |
+| Category typing and cardinality | Course Category typed route | Mac + Drew |
+| Description splitting approach | Compliance boundary on course copy | Mac + Drew |
+| Which action modes exist | Course Detail template | Drew |
+| `occupations` governance owner | Filter widget, occupation landing pages | Drew |
+| Freshness policy per field | Render strategy | Drew + Chris |
