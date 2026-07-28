@@ -70,9 +70,9 @@ export const surfaces = {
 };
 ```
 
-**Rule of thumb:** interactive states brighten on dark surfaces, they don't darken — the same direction the browser's default focus ring would move if you inverted a page. A hover state that's simply "darker" reliably fails contrast once the surface itself is dark.
+**Rule of thumb:** interactive states brighten on dark surfaces, they don't darken — the same direction the browser's default focus ring would move if you inverted a page.
 
-This structure isn't about saving keystrokes. It's what makes the pipeline portable across brands with very different palettes: a brand with one dominant hue shares most of `defaults`; a brand with four unrelated saturated hues per surface will barely use `defaults` at all, and every surface looks more like Bold does today. Both are the same file shape — sharing is discovered per brand, never re-architected per brand.
+This structure makes the pipeline portable across brands with very different palettes: a brand with one dominant hue shares most of `defaults`; a brand with four unrelated saturated hues per surface will barely use `defaults` at all, and every surface looks more like Bold does today. Sharing is discovered per brand, never re-architected per brand.
 
 ### Popover — global, not per-surface
 
