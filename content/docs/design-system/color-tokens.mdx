@@ -101,6 +101,20 @@ cva({ variants: { default: "bg-accent text-accent-fg hover:bg-accent-hover" }}) 
 
 The same `<Button variant="default">` renders correctly under any `data-surface` ancestor with zero conditional logic — it asks for `var(--accent)`, and cascade resolves it based on nesting.
 
+## Surface Nesting
+
+Wherever possible blocks should be treated as a section layout with variants. One block, one surface decision. Blocks where nesting is required should be scoped so surface rules are inherited from the parent block, keeping one surface toggle. 
+
+An emphasis toggle may be considered as an override that extends surface rules. Enum is preferred over boolean for this for future extensibility.
+
+<TypeTable type={{
+  emphasis: {
+    description: 'Elevates a nested block to an emphasis ground.',
+    type: '"none" | "strong"',
+    default: '"none"',
+  },
+}} />
+
 ## Extension discipline
 
 Additional surfaces or state tokens require a **named functional trigger** — a real, discussed need — not a visual preference. Two concrete examples of the right kind of trigger:
