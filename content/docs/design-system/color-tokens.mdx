@@ -115,7 +115,7 @@ The same `<Button>` renders correctly under any `data-surface` ancestor with no 
 
 ## Surface nesting
 
-Surfaces are declared at section level only. Nested blocks have no surface field — not defaulted, not validated, absent. Inheritance is structural rather than a rule anyone can violate, because there is no control to get wrong.
+Surfaces are declared at section level only. Nested blocks have no surface field — instead they inherit their values from their parent block. Inheritance is structural rather than a rule, eliminating human error and minimizing editorial decisions.
 
 Within-surface layering is handled by the `card` token, not by a nested surface. A card on a dark ground resolves a lifted dark value and light foreground through the same cascade — no wrapper, no context.
 
@@ -138,8 +138,6 @@ Handled at the block level, not in the surface roster.
 A block with an image background renders an overlay, blur, or fill behind its content, and that treatment *is* the surface the content sits on. The block declares a normal surface for its content; the image sits behind it. Tokens stay accountable and the contrast check still runs.
 
 The same applies to gradients. A gradient behind a block whose content declares a surface is fine. A gradient *as* a surface is not, because there is no single background value to verify against.
-
-**Out of contract:** text placed directly over an image with no overlay. Not forbidden — art direction will want it — but the system makes no guarantee there, and legibility has been verified by eye rather than by the harness.
 
 ## Verification
 
