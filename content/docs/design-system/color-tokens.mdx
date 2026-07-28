@@ -1,82 +1,92 @@
 ---
 title: Color System
-description: Where colors are defined and managed.
+description: Where colors are defined, how surfaces resolve them, and what varies per brand.
 owner: drew
 status: draft
 ---
 
-This section covers design tokens, component guidelines, and usage patterns for the design system.
-
+This section covers the color token pipeline: what is authored by hand, what is derived, and what varies per brand.
 
 <Callout type="warn" title="Primitive layer — not yet canonical">
-The prototype token object currently defines its own placeholder primitives inline. The architecture calls for a single shared CSS custom property file (OKLCH values), consumed by this pipeline. When color palette is approved in the Brand workstream, the primitives here need to import from that canonical file rather than redeclare their own copy — otherwise two sources of truth can drift.
+The prototype token object currently defines its own placeholder primitives inline. The architecture calls for a single shared CSS custom property file (OKLCH values) consumed by this pipeline. When the color palette is approved in the Brand workstream, the primitives here need to import from that canonical file rather than redeclare their own copy — otherwise two sources of truth can drift.
 </Callout>
 
 ## Surfaces
 
-A **surface** is a section-level mood a designer or editor can assign to blocks when composing pages in PayloadCMS.
+A **surface** is a section-level ground an editor assigns to a block when composing a page. Every surface resolves the same set of token names, so a component references a name and never checks which surface it is in.
 
-Four surfaces should be designed as distinct color groupings that can coexist elegantly within a layout — they are not required to be calculated values from one another. 
+There are four roles. A role is a *position with a derivation rule*, not a set of values.
 
+| Role | Ramp source | Position | Extendable |
+|---|---|---|---|
+| **Base** | Neutral | Lightest step | No |
+| **Shade** | Neutral | Recessed step | Yes |
+| **Tint** | Brand | Low chroma, high lightness | Yes |
+| **Feature** | Brand | Saturated | Yes |
 
-| Surface | Role |
-|---|---|
-| **Base** | Default page background. Most body content lives here. |
-| **Tint** | Alternative brand colors — use |
-| **Shade** |Darker brand colors, paired opposite of Tint. *Role still open — see Known gaps below.* |
-| **Bold** | Saturated, high-emphasis surface — CTA banners, promo strips. |
+What separates the roles is **ramp source, not chroma**. Shade extends from neutral ramps; Tint and Feature from brand ramps at different positions on them. That distinction survives a warm neutral ramp — cream and tan are hued but still neutral in the sense that matters.
 
+Tint and Feature are the same ramp at different positions: the quiet expression of brand identity and the loud one.
 
-### How Surfaces Work
+### Extension
 
-Every surface must resolve the same set of names. A component only ever references the name on the left — never a raw color input, never a check for which surface it's in.
+Shade, Tint, and Feature are extendable. A variant supplies a different ramp at the same position — `featureCitron`, `shadeWarm` — and runs through the same derivation, lands in the same token contract, and is verified by the same contrast harness. The roster grows; the contract does not.
+
+Unqualified `feature` always exists as the guaranteed chromatic ground, so templates and page models have something to bind to by name. Variants extend it rather than replace it.
+
+**Base is singular.** It is the ground everything else is defined against, and a default cannot be plural. A brand wanting an alternate page ground is asking for a Shade variant.
+
+Variants are named for their color rather than their role. This is a deliberate exception to role-based naming: chromatic peers have no structural hierarchy to encode, editors select them visually, and within a brand the color *is* the meaning. Role names themselves stay role-based.
+
+### What a brand supplies
+
+A neutral ramp, a brand ramp, and zero or more additional ramps for variants. That is the entire per-brand surface.
+
+## What is authored and what is derived
+
+| Layer | Authored or derived | Owner |
+|---|---|---|
+| Ramps (neutral, brand, variant) | Authored | Brand |
+| Role positions on a ramp | Authored once, system-wide | System |
+| Surface token sets | Derived — resolved against the ground | System |
+| Overrides on any surface | Authored, sparse | Design |
+
+Resolution is governed by the ground's **lightness**, not its saturation. A light chromatic ground resolves like a light surface; a dark one resolves like a dark surface. Chroma governs which end of the ramp `primary` selects and how border alpha is set — not polarity. This is why a dark ground needs no special role: it is a Feature variant whose ground happens to be dark.
+
+**Cross-ramp pairing is the normal case.** A `shadeWarm` ground drawn from a warm neutral ramp still takes its `primary` from the brand ramp. Selection must therefore be governed by the ground's lightness, never by an assumption that ground and accent share a ramp — variants break the moment those diverge.
+
+**Rule of thumb:** interactive states brighten on dark grounds rather than darkening — the same direction the browser's default focus ring would move on an inverted page.
+
+Derivation is a default, not a constraint. Any surface may override any token explicitly; the derivation fills the rest.
+
+## Token contract
+
+Names align to shadcn/ui exactly, so components install without rewriting class names. TypeScript keys are camelCase; the generator emits the kebab-case CSS custom property.
 
 | Token | Guarantees |
 |---|---|
-| `surface` | Section background |
-| `surfaceFg` | Default text — passes contrast against `surface` |
-| `border` | Dividers, card outlines, input borders |
-| `muted` | Recessed background — nested cards, subtle panels |
-| `mutedFg` | Secondary/caption text on `muted` |
-| `accent` | Primary CTA fill, links, emphasis |
-| `accentFg` | Text/icon color on `accent` |
-| `accentHover` / `accentActive` | Interactive states — resolved per surface, not derived by darkening a shared value |
-| `focusRing` | Visible-focus outline — set independently per surface, not inherited from Base |
+| `background` | Section ground |
+| `foreground` | Default text — passes contrast against `background` |
+| `card` / `cardFg` | Container ground for grouped content, and text on it |
+| `muted` / `mutedFg` | De-emphasized region, and secondary/caption text |
+| `border` | Dividers, card outlines |
+| `primary` / `primaryFg` | Primary CTA fill, links, emphasis |
+| `primaryHover` / `primaryActive` | Interactive states — resolved per surface, not derived by darkening a shared value |
+| `accent` / `accentFg` | Subtle interactive ground — ghost and outline hover, dropdown and command rows |
+| `ring` | Visible-focus outline — set per surface, not inherited from Base |
 | `success` / `successFg` | Positive state feedback |
 | `warning` / `warningFg` | Caution state feedback |
-| `destructive` / `destructiveFg` | **Reserved, unresolved.** See Known gaps. |
+| `secondary` / `secondaryFg` | **Unresolved.** See Known gaps. |
+| `input` | **Reserved.** Gated on the forms decision. |
+| `destructive` / `destructiveFg` | **Reserved.** Gated on the forms decision. |
 
-### Defaults + per-surface overrides
+`card` and `muted` are distinct roles even where they resolve to similar values. `card` is a container for grouped content; `muted` is a de-emphasized region. Keep `card` a small delta from `background` — components inside a card still pull `border` and `mutedFg` from the parent surface, and a large delta breaks them. A large delta is a surface, and surfaces are declared at section level.
 
-Each surface is a unique set of colors that are designed to go together. However, surfaces often share common colors and sub-brands may require more or less variance. 
+`primaryHover`, `primaryActive`, `success`, and `warning` are extensions beyond shadcn's set. Everything else matches its expected name.
 
-To keep surface design manageable we use global defaults that resolve every value for surfaces. This way each unique surface need only define values that differentiate it. 
+## Popover — global, not per-surface
 
-```ts
-const defaults = {
-  accent: primitives.blue[500],
-  accentHover: primitives.blue[600],
-  focusRing: primitives.blue[600],
-  success: primitives.green[600],
-  warning: primitives.amber[600],
-  // ...
-};
-
-export const surfaces = {
-  base: { ...defaults, surface: primitives.gray[0], /* identity tokens only */ },
-  tint: { ...defaults, surface: "#f2f6ff", /* identity tokens only */ },
-  shade: { ...defaults, surface: primitives.gray[50], /* identity tokens only */ },
-  bold: { surface: primitives.blue[500], accent: "#ffffff", /* nearly everything, explicit */ },
-};
-```
-
-**Rule of thumb:** interactive states brighten on dark surfaces, they don't darken — the same direction the browser's default focus ring would move if you inverted a page.
-
-This structure makes the pipeline portable across brands with very different palettes: a brand with one dominant hue shares most of `defaults`; a brand with four unrelated saturated hues per surface will barely use `defaults` at all, and every surface looks more like Bold does today. Sharing is discovered per brand, never re-architected per brand.
-
-### Popover — global, not per-surface
-
-Popover/dialog/tooltip content renders through a portal, appended outside the DOM subtree of whatever triggered it. That severs the normal cascade a surface wrapper depends on, so "popover resolves to its ambient surface" isn't free — it would require a `SurfaceContext` plus stamping `data-surface` onto portaled content, a real engineering cost. Absent a concrete need, popover is one fixed global pair:
+Popover, dialog, and tooltip content renders through a portal, appended outside the DOM subtree of whatever triggered it. That severs the cascade a surface wrapper depends on, so resolving popover to its ambient surface would require a `SurfaceContext` plus stamping `data-surface` onto portaled content — real engineering cost with no concrete need. Popover is one fixed global pair.
 
 ```ts
 export const globalTokens = {
@@ -87,44 +97,74 @@ export const globalTokens = {
 
 ## Component layer — how a token becomes a rendered color
 
-No component ever branches on which surface it's in. The chain:
+No component branches on which surface it is in.
 
 ```
-[data-surface="deep"] { --accent: #8fb8ff; ... }   ← CSS custom property, set per surface
+[data-surface="base"] { --primary: …; --primary-foreground: …; }   ← set per surface
         ↓
-@theme inline { --color-accent: var(--accent); }   ← Tailwind v4 theme
+@theme inline { --color-primary: var(--primary); }                 ← Tailwind v4
         ↓
-bg-accent, text-accent-fg                          ← generated utility classes
+bg-primary, text-primary-foreground                                ← utility classes
         ↓
-cva({ variants: { default: "bg-accent text-accent-fg hover:bg-accent-hover" }})  ← shadcn component
+cva({ variants: { default: "bg-primary text-primary-foreground" }}) ← shadcn component
 ```
 
-The same `<Button variant="default">` renders correctly under any `data-surface` ancestor with zero conditional logic — it asks for `var(--accent)`, and cascade resolves it based on nesting.
+`@theme inline` is load-bearing. Without `inline`, Tailwind resolves the value at build time and bakes it into the utility, and the per-surface cascade does nothing.
 
-## Surface Nesting
+The same `<Button>` renders correctly under any `data-surface` ancestor with no conditional logic.
 
-Wherever possible blocks should be treated as a section layout with variants. One block, one surface decision. Blocks where nesting is required should be scoped so surface rules are inherited from the parent block, keeping one surface toggle. 
+## Surface nesting
 
-An emphasis toggle may be considered as an override that extends surface rules. Enum is preferred over boolean for this for future extensibility.
+Surfaces are declared at section level only. Nested blocks have no surface field — not defaulted, not validated, absent. Inheritance is structural rather than a rule anyone can violate, because there is no control to get wrong.
+
+Within-surface layering is handled by the `card` token, not by a nested surface. A card on a dark ground resolves a lifted dark value and light foreground through the same cascade — no wrapper, no context.
+
+An `emphasis` toggle is reserved as an override for the case where a nested block legitimately needs a different ground. The preferred answer is to promote that block to its own top-level section, which is already legal and requires no mechanism. Enum rather than boolean, for extensibility.
 
 <TypeTable type={{
   emphasis: {
-    description: 'Elevates a nested block to an emphasis ground.',
+    description: 'Reserved. Elevates a nested block to a feature ground. Prefer promoting the block to a section.',
     type: '"none" | "strong"',
     default: '"none"',
   },
 }} />
 
+If built, `emphasis` must re-scope the full token set, not only ground and foreground — otherwise a card inside an emphasized block inherits the parent surface's card values.
+
+## Image and gradient grounds
+
+Handled at the block level, not in the surface roster.
+
+A block with an image background renders an overlay, blur, or fill behind its content, and that treatment *is* the surface the content sits on. The block declares a normal surface for its content; the image sits behind it. Tokens stay accountable and the contrast check still runs.
+
+The same applies to gradients. A gradient behind a block whose content declares a surface is fine. A gradient *as* a surface is not, because there is no single background value to verify against.
+
+**Out of contract:** text placed directly over an image with no overlay. Not forbidden — art direction will want it — but the system makes no guarantee there, and legibility has been verified by eye rather than by the harness.
+
+## Verification
+
+Every foreground/background pairing on every surface — including every variant — is computed and asserted against WCAG AA, failing the build on violation: `foreground` on `background`, `cardFg` on `card`, `mutedFg` on both `muted` and `card`, `primaryFg` on `primary` and its hover and active states, and `ring` against both `background` and `primary`.
+
+This is what per-surface explicit values buy. Contrast is checkable in the token file rather than discovered in design review, and it scales automatically as variants are added.
+
 ## Extension discipline
 
-Additional surfaces or state tokens require a **named functional trigger** — a real, discussed need — not a visual preference. Two concrete examples of the right kind of trigger:
+Adding a surface variant used to be expensive — a full token set authored and verified by hand. Under the derived model it is one ramp reference, and it is safe by construction.
 
-- `success`/`warning` were added because real page content (the For Business account-status messaging) already describes status states that need to render.
-- `destructive` is named but deliberately left unresolved, gated on the native-vs-HubSpot-forms decision — if forms stay embedded, this may never need a value on the marketing site.
+That means the system no longer supplies friction against roster sprawl, and the test has to change. It is no longer *is this safe*, which is now always yes. It is **does this help an editor make a better page.** Nine surfaces in a flat dropdown is worse than four even when all nine are correct.
 
-Any future addition should be proposed and discussed the same way, not added because it "would be nice to have."
+The remaining constraint is therefore page models: which surfaces a given block may use in a given template. That governance layer is required rather than beneficial, and is documented separately.
+
+Token contract additions remain subject to the original discipline — a named functional trigger, not a visual preference.
+
+- `success` and `warning` were added because real page content (For Business account-status messaging) describes states that need to render.
+- `destructive` is named and deliberately unresolved, gated on the native-versus-HubSpot forms decision. If forms stay embedded, it may never need a value.
+
+Feature variants are the pressure valve for visual variety. The token contract does not grow to accommodate a palette.
 
 ## Known gaps
 
-- **`destructive`/`destructiveFg`** have no resolved values pending the forms decision.
-- **Primitive layer** still self-contained placeholder values; needs to import from the canonical shared OKLCH file before this leaves prototyping.
+- **`secondary`** is undecided. shadcn's Button has a secondary variant referencing it. Either define the pair or remove that variant value from the cva config — removing it is legitimate, and is the one case that warrants config divergence per brand.
+- **`input` and `destructive`** are reserved pending the forms decision.
+- **Ramps** are placeholder values pending the Brand workstream. The system needs a neutral ramp and a brand ramp with enough range to clear contrast on both light and dark grounds.
+- **Primitive layer** is still self-contained placeholder values and needs to import from the canonical shared OKLCH file before this leaves prototyping.
