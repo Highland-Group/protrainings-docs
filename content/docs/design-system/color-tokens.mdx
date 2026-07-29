@@ -7,7 +7,7 @@ status: draft
 
 This section covers the color token pipeline: what is authored by hand, what is derived, and what varies per brand.
 
-<Callout type="warn" title="Primitive layer — not yet canonical">
+<Callout type="warn" title="Primitive layer — only for testing until Brand produces a palette">
 The prototype token object currently defines its own placeholder primitives inline. The architecture calls for a single shared CSS custom property file (OKLCH values) consumed by this pipeline. When the color palette is approved in the Brand workstream, the primitives here need to import from that canonical file rather than redeclare their own copy — otherwise two sources of truth can drift.
 </Callout>
 
@@ -17,45 +17,67 @@ A **surface** is a section-level ground an editor assigns to a block when compos
 
 There are four roles. A role is a *position with a derivation rule*, not a set of values.
 
-| Role | Ramp source | Position | Extendable |
+| Role | Ramp | Position | Extendable |
 |---|---|---|---|
-| **Base** | Neutral | Lightest step | No |
-| **Shade** | Brand or Neutral | Recessed step | Yes |
-| **Tint** | Brand or Neutral | Low chroma, high lightness | Yes |
-| **Feature** | Brand | Saturated | Yes |
+| **Base** | Brand neutral | Outermost step — lightest in light mode, darkest in dark | No |
+| **Tint** | Any branded or brand-neutral | Lighter contrast from Base | Yes |
+| **Shade** | Any branded or brand-neutral | Darker than Base | Yes |
+| **Bright** | Any branded | High chroma | Yes |
 
-What separates the roles is **ramp source, not chroma**. Shade extends from neutral darks; Tint and Feature from brand ramps at different positions on them.
+Roles are defined by their **relationship to Base**, not by which ramp they draw from. Tint sits lighter, Shade sits darker, and Bright is the saturation role. Any of the three can extend from any branded or brand-neutral ramp — that is what makes the roster genuinely flexible rather than a fixed palette wearing role names.
 
-Shade, Tint and Feature can extend to support multiple brand color ramps by representing different positions on the same scale.
+The naming is literal rather than borrowed: a tint moves a hue toward white, a shade moves it toward black. Base is the neutral reference both are measured against.
+
+**Base is the page ground everything else is defined against.** Its neutrality is structural, not chromatic — a warm cream Base is still Base. A brand whose page ground is cream or rich black defines that here rather than adding a surface to avoid white.
+
+**Dark saturated grounds are Shade variants, not Bright.** Bright is the high-chroma-high-lightness role. A deep saturated plum is a Shade variant that happens to be chromatic, which keeps the name accurate and the polarity rule doing the work.
 
 ### Extension
 
-Shade, Tint, and Feature are extendable. A variant supplies a different ramp at the same position — `featureCitron`, `shadeWarm` — and runs through the same derivation, lands in the same token contract, and is verified by the same contrast harness. The roster grows; the contract does not.
-
-Unqualified `feature` always exists as the guaranteed chromatic ground, so templates and page models have something to bind to by name. Variants extend it rather than replace it.
-
-**Base is singular.** It is the ground everything else is defined against, and a default cannot be plural. A brand wanting an alternate page ground is asking for a Shade variant.
+Tint, Shade, and Bright are extendable. A variant supplies a different ramp or a different step in the same role — `brightCitron`, `shadeSand` — and runs through the same derivation, lands in the same token contract, and is verified by the same contrast harness. The roster grows; the contract does not.
 
 Variants are named for their color rather than their role. This is a deliberate exception to role-based naming: chromatic peers have no structural hierarchy to encode, editors select them visually, and within a brand the color *is* the meaning. Role names themselves stay role-based.
 
+**Base is singular.** It is the reference ground, and a reference cannot be plural.
+
+How many surfaces a brand needs is a brand decision. The system guarantees that any surface resolves the full contract and clears contrast; it does not cap the roster. That is a matter of design discipline and discretion, and the constraint that keeps it usable is page models rather than architecture.
+
+## Ramps
+
+A ramp is a complete scale — `0` through `950` — authored per brand. Surfaces name a ramp and a ground step; every other token in the surface derives by stepping from it.
+
+This is what keeps the primitive layer real. Each value a surface resolves is a named primitive, which means `--border` on Base is literally `neutral-200` and can be said out loud. It also gives the Rails LMS something to consume: the primitive file is the shared cross-consumer contract, and it only exists if primitives are named steps rather than computed one-offs.
+
+Three requirements:
+
+**Uniform keys.** Every ramp defines every step. Derivation is index arithmetic — `ground + 100`, `ground − 200` — so a ramp missing a step resolves to undefined silently. `0` is included on chromatic ramps as a near-white tint rather than omitted, to keep the keys identical.
+
+**Monotonic, evenly spaced lightness.** Derivation assumes one step is a consistent perceptual distance. Hand-authored ramps drift, and then `card` reads invisible on one surface and dramatic on another. A test asserts lightness decreases monotonically and no adjacent gap exceeds a multiple of the median.
+
+**Chroma tapers.** High chroma is not reachable at the extremes of lightness in OKLCH — it gets gamut-clipped. Ramps peak mid-scale and taper at both ends, or the `50` and `950` steps come back muddier than intended and clip inconsistently across hues.
+
+Brand will supply individual colors rather than complete scales. Those are placed at the step where their lightness naturally falls and the ramp is generated outward from that anchor — the approved color stays exact at its step, and the rest is even by construction rather than hand-tuned across a dozen values per hue.
+
 ### What a brand supplies
 
-A neutral ramp, a brand ramp, and zero or more additional ramps for variants. That is the entire per-brand surface.
+A neutral ramp, a brand ramp, and any additional ramps its variants draw from. That is the entire per-brand surface.
 
 ## What is authored and what is derived
 
 | Layer | Authored or derived | Owner |
 |---|---|---|
-| Ramps (neutral, brand, variant) | Authored | Brand |
-| Role positions on a ramp | Authored once, system-wide | System |
-| Surface token sets | Derived — resolved against the ground | System |
+| Ramps | Authored (anchored, interpolated) | Brand |
+| Ground step per surface | Authored | Design |
+| Remaining tokens per surface | Derived — offsets from the ground | System |
 | Overrides on any surface | Authored, sparse | Design |
 
-Resolution is governed by the ground's **lightness**, not its saturation. A light chromatic ground resolves like a light surface; a dark one resolves like a dark surface. Chroma governs which end of the ramp `primary` selects and how border alpha is set — not polarity. This is why a dark ground needs no special role: it is a Feature variant whose ground happens to be dark.
+Resolution is governed by the ground's **lightness**, not its saturation. A light chromatic ground resolves like a light surface; a dark one resolves like a dark surface. Chroma governs which end of the ramp `primary` selects and how border alpha is set — not polarity.
 
-**Cross-ramp pairing is the normal case.** A `shadeWarm` ground drawn from a warm neutral ramp still takes its `primary` from the brand ramp. Selection must therefore be governed by the ground's lightness, never by an assumption that ground and accent share a ramp — variants break the moment those diverge.
+**Cross-ramp pairing is the normal case.** A `shadeSand` ground drawn from a warm neutral ramp still takes its `primary` from the brand ramp. Selection must therefore be governed by the ground's lightness, never by an assumption that ground and accent share a ramp — variants break the moment those diverge.
 
 **Rule of thumb:** interactive states brighten on dark grounds rather than darkening — the same direction the browser's default focus ring would move on an inverted page.
+
+**At the ends of a ramp,** offsets have nowhere to go. On light grounds `card` offsets *darker* than the ground, with lift coming from elevation; on dark grounds it offsets lighter. Clamping instead would resolve `card` and `background` to the same value and make the container invisible.
 
 Derivation is a default, not a constraint. Any surface may override any token explicitly; the derivation fills the rest.
 
@@ -72,17 +94,22 @@ Names align to shadcn/ui exactly, so components install without rewriting class 
 | `border` | Dividers, card outlines |
 | `primary` / `primaryFg` | Primary CTA fill, links, emphasis |
 | `primaryHover` / `primaryActive` | Interactive states — resolved per surface, not derived by darkening a shared value |
+| `secondary` / `secondaryFg` | Filled button for a second action — low-chroma step from the surface's own ground |
 | `accent` / `accentFg` | Subtle interactive ground — ghost and outline hover, dropdown and command rows |
 | `ring` | Visible-focus outline — set per surface, not inherited from Base |
 | `success` / `successFg` | Positive state feedback |
 | `warning` / `warningFg` | Caution state feedback |
-| `secondary` / `secondaryFg` | **Unresolved.** See Known gaps. |
+| `elevationSm` / `elevationMd` | Shadow — surface-scoped, since a cast shadow is invisible on a dark ground |
 | `input` | **Reserved.** Gated on the forms decision. |
 | `destructive` / `destructiveFg` | **Reserved.** Gated on the forms decision. |
 
 `card` and `muted` are distinct roles even where they resolve to similar values. `card` is a container for grouped content; `muted` is a de-emphasized region. Keep `card` a small delta from `background` — components inside a card still pull `border` and `mutedFg` from the parent surface, and a large delta breaks them. A large delta is a surface, and surfaces are declared at section level.
 
-`primaryHover`, `primaryActive`, `success`, and `warning` are extensions beyond shadcn's set. Everything else matches its expected name.
+`secondary` and `muted` are also distinct, and for a sharper reason: `muted` is a region treatment with no interaction guarantee, while `secondary` is an interactive fill that must clear AA against its foreground. They may resolve close together on Base and diverge elsewhere.
+
+Elevation is surface-scoped because its correct value depends on what is behind it — the same test that puts color here and leaves spacing, radii, type, and motion global. It branches on polarity rather than scaling: light grounds get a real shadow, dark grounds get none, with lift coming from the `card` delta instead. The CSS variable is named `--elevation-*` because `--shadow-*` is Tailwind's own namespace and self-reference would be circular.
+
+`primaryHover`, `primaryActive`, `success`, `warning`, and the elevation pair are extensions beyond shadcn's set. Everything else matches its expected name.
 
 ## Popover — global, not per-surface
 
@@ -90,8 +117,8 @@ Popover, dialog, and tooltip content renders through a portal, appended outside 
 
 ```ts
 export const globalTokens = {
-  popover: primitives.gray[0],
-  popoverFg: primitives.gray[900],
+  popover: ramps.neutral[0],
+  popoverFg: ramps.neutral[900],
 };
 ```
 
@@ -109,9 +136,26 @@ bg-primary, text-primary-foreground                                ← utility c
 cva({ variants: { default: "bg-primary text-primary-foreground" }}) ← shadcn component
 ```
 
-`@theme inline` is load-bearing. Without `inline`, Tailwind resolves the value at build time and bakes it into the utility, and the per-surface cascade does nothing.
+`@theme inline` is required. Without `inline`, Tailwind resolves the value at build time and bakes it into the utility, and the per-surface cascade does nothing.
 
 The same `<Button>` renders correctly under any `data-surface` ancestor with no conditional logic.
+
+## Dark mode
+
+Dark mode is a second resolution of the same roster, not additional surfaces.
+
+A surface is an editorial choice authored into content; dark mode is a reader preference resolved at view time. If dark surfaces were roster entries, switching modes would mean remapping every block's stored surface value at render — moving the second axis out of CSS and into render logic. Instead the generator emits each surface twice from one config entry, the second prefixed with `.dark`.
+
+```css
+[data-surface="tint"]       { --background: …light…; }
+.dark [data-surface="tint"] { --background: …dark…;  }
+```
+
+Editors never see dark surfaces, the roster stays the same length, and the contrast harness picks up the second set automatically because it iterates the config rather than the selectors.
+
+The mechanism is free. The design work is not: in dark mode Base is dark, so a dark Shade has little to differentiate against and a low-chroma Tint stops reading as distinct. Roles compress, which means the dark resolution is a set of decisions about how roles stay distinguishable rather than the same values inverted. That needs real ramps to answer.
+
+Not implemented. ProTrainings is not shipping dark mode.
 
 ## Surface nesting
 
@@ -123,7 +167,7 @@ An `emphasis` toggle is reserved as an override for the case where a nested bloc
 
 <TypeTable type={{
   emphasis: {
-    description: 'Reserved. Elevates a nested block to a feature ground. Prefer promoting the block to a section.',
+    description: 'Reserved. Elevates a nested block to a bright ground. Prefer promoting the block to a section.',
     type: '"none" | "strong"',
     default: '"none"',
   },
@@ -141,28 +185,39 @@ The same applies to gradients. A gradient behind a block whose content declares 
 
 ## Verification
 
-Every foreground/background pairing on every surface — including every variant — is computed and asserted against WCAG AA, failing the build on violation: `foreground` on `background`, `cardFg` on `card`, `mutedFg` on both `muted` and `card`, `primaryFg` on `primary` and its hover and active states, and `ring` against both `background` and `primary`.
+Every foreground/background pairing on every surface — including every variant, in both modes — is computed and asserted, failing the build on violation.
+
+| Pairing | Threshold |
+|---|---|
+| `foreground` on `background` | 4.5:1 |
+| `cardFg` on `card` | 4.5:1 |
+| `mutedFg` on `muted` and on `card` | 4.5:1 |
+| `primaryFg` on `primary`, `primaryHover`, `primaryActive` | 4.5:1 |
+| `secondaryFg` on `secondary` | 4.5:1 |
+| `successFg` on `success`, `warningFg` on `warning` | 4.5:1 |
+| `ring` on `background` and on `primary` | 3:1 |
+| `input` | 3:1 (reserved) |
+| `border` | none — decorative dividers carry no requirement |
+
+Contrast runs on the **gamut-mapped** value, not the authored one. High-chroma grounds fall outside sRGB and browsers clip inconsistently; testing the ideal value would pass a color the browser renders differently.
 
 This is what per-surface explicit values buy. Contrast is checkable in the token file rather than discovered in design review, and it scales automatically as variants are added.
 
 ## Extension discipline
 
-Adding a surface variant used to be expensive — a full token set authored and verified by hand. Under the derived model it is one ramp reference, and it is safe by construction.
+The primary constraint is page models: which surfaces a given block may use in a given template.
 
-That means the system no longer supplies friction against roster sprawl, and the test has to change. It is no longer *is this safe*, which is now always yes. It is **does this help an editor make a better page.** Nine surfaces in a flat dropdown is worse than four even when all nine are correct.
-
-The remaining constraint is therefore page models: which surfaces a given block may use in a given template. That governance layer is required rather than beneficial, and is documented separately.
-
-Token contract additions remain subject to the original discipline — a named functional trigger, not a visual preference.
+Token contract additions should address a functional need, not a visual preference.
 
 - `success` and `warning` were added because real page content (For Business account-status messaging) describes states that need to render.
 - `destructive` is named and deliberately unresolved, gated on the native-versus-HubSpot forms decision. If forms stay embedded, it may never need a value.
 
-Feature variants are the pressure valve for visual variety. The token contract does not grow to accommodate a palette.
+Surface variants are the pressure valve for visual variety. The token contract does not grow to accommodate a palette.
 
 ## Known gaps
 
-- **`secondary`** is undecided. shadcn's Button has a secondary variant referencing it. Either define the pair or remove that variant value from the cva config — removing it is legitimate, and is the one case that warrants config divergence per brand.
+- **Ramps** are placeholder values pending the Brand workstream. The system needs a neutral ramp and at least one brand ramp with enough range to clear contrast at both ends.
 - **`input` and `destructive`** are reserved pending the forms decision.
-- **Ramps** are placeholder values pending the Brand workstream. The system needs a neutral ramp and a brand ramp with enough range to clear contrast on both light and dark grounds.
-- **Primitive layer** is still self-contained placeholder values and needs to import from the canonical shared OKLCH file before this leaves prototyping.
+- **A guaranteed chromatic surface** is undecided. If page models bind to a surface by name, unqualified `bright` needs to exist in every brand; if page models specify surfaces per block per brand, it does not.
+- **Text over an image with no overlay** is out of contract. Not forbidden, but the system makes no guarantee there and legibility has been verified by eye rather than by the harness.
+- **Primitive layer** is still self-contained placeholder values and needs to import from the canonical shared file before this leaves prototyping.
