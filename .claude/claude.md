@@ -1,0 +1,8 @@
+// .claude/settings.json
+{
+  "hooks": {
+    "PostToolUse": [
+      { "matcher": "Edit|Write", "hooks": [{ "type": "command", "command": "npm run typecheck && npm run lint" }] }
+    ]
+  }
+}

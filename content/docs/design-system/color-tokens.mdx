@@ -30,7 +30,7 @@ The naming is literal rather than borrowed: a tint moves a hue toward white, a s
 
 **Base is the page ground everything else is defined against.** Its neutrality is structural, not chromatic — a warm cream Base is still Base. A brand whose page ground is cream or rich black defines that here rather than adding a surface to avoid white.
 
-**Dark saturated grounds are Shade variants, not Bright.** Bright is the high-chroma-high-lightness role. A deep saturated plum is a Shade variant that happens to be chromatic, which keeps the name accurate and the polarity rule doing the work.
+**Dark saturated grounds are Shade variants, not Bright.** Bright is the high-chroma-high-lightness role. A deep saturated plum is a Shade variant that happens to be chromatic.
 
 ### Extension
 
@@ -44,9 +44,9 @@ How many surfaces a brand needs is a brand decision. The system guarantees that 
 
 ## Ramps
 
-A ramp is a complete scale — `0` through `950` — authored per brand. Surfaces name a ramp and a ground step; every other token in the surface derives by stepping from it.
+A ramp is a complete scale — 0 through 950 — authored per brand. A surface names a ground ramp and step, plus the ramps its accent and text tokens draw from; each token derives by stepping within its assigned ramp.
 
-This is what keeps the primitive layer real. Each value a surface resolves is a named primitive, which means `--border` on Base is literally `neutral-200` and can be said out loud. It also gives the Rails LMS something to consume: the primitive file is the shared cross-consumer contract, and it only exists if primitives are named steps rather than computed one-offs.
+This is what keeps the primitive layer real. Every value a surface resolves — including every override is definied in the primitive layer. Surfaces are never defined directly by a literal. 
 
 Three requirements:
 
