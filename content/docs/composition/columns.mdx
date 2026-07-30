@@ -1,0 +1,46 @@
+---
+title: Columns
+description: What each type of block is for and which blocks are available in each category.
+owner: drew
+status: draft
+---
+
+### Columns
+
+A container block holding a single flat array of cells. Each cell is one block carrying its own `size` — `full`, `half`, `third`, `quarter`. There is no rows array, no columns array, and no nested Columns block. Rows are emergent: cells lay out left to right across a twelve-column grid and wrap when the next one doesn't fit.
+
+Structurally this is the Payload website template's Content block with the `richText` field replaced by the block itself. `size` is a shared field spread into every cell-class block rather than a property of a wrapper, which is what keeps reordering flat — a cell can be dragged anywhere in the array, including across what renders as a row boundary.
+
+**Columns is always margin-bound.** It lays out inside the content measure at every size, including `full`. Breaking the measure — edge-to-edge media, full-bleed color fields — is what Brand Layouts do and Columns does not. That is the boundary between the two classes: bleed, not width. A full-measure Rich Text block and a full-bleed hero are not the same output, so the two classes never produce the same result by different routes.
+
+`full` is available per block type, not universally. Content-shaped blocks take it — Rich Text, Image / Media, CTA, Form. Card-shaped blocks do not: a full-measure Statistic Card or Course Card is a composition nobody needs the option to build. Because `size` is a shared field, the options array can differ per block, so this is enforced declaratively at the schema rather than through review.
+
+Additional sizes are expected. `sixth` in particular unlocks asymmetric arrangements — `2/3 + 1/6 + 1/6` and its permutations — at the cost of one enum value, with every ordering available for free. Which sizes are actually needed is a brand decision and is deferred until brand direction returns.
+
+#### Partial rows
+
+Rows do not have to resolve to twelve. A lone `third` is a third-width block with negative space beside it, and that is a legitimate composition rather than an error state — it will also be the honest result for a number of source pages during migration.
+
+Leftover space flows to the end of the row. Cells align to start; nothing centers, stretches, or redistributes to close the gap. There is no save-time validation on row totals and no auto-normalization of sizes. Both would intervene on intermediate states an editor is still composing, and normalization in particular edits intent in a way that can't be diagnosed from the admin.
+
+If brand determines that lone partials are never acceptable, that is a rule enforced by not designing pages that way, not a schema constraint.
+
+#### Stacking
+
+A cell holds one block. That constraint produces the rule:
+
+> **Columns place peers. Anything with internal hierarchy is a Brand Layout.**
+
+The pressure this creates is absorbed in two places. The Rich Text block handles heading-plus-body in a single cell, which covers most stacking cases. Compositions with real internal hierarchy — a headline governing a set of images, for instance — are designed as Brand Layouts rather than assembled.
+
+#### Blocks available in cells
+
+- Rich Text
+- Statistic Card
+- Course Card
+- Blog / Insight Card
+- Poster (graphic or image with structured content beneath)
+- Image / Media
+- List (icon-paired items; the alternative to unordered lists in Lexical)
+- CTA (poster-style, constrained to column width)
+- Form *(pending the forms decision — see open decisions)*

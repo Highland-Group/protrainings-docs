@@ -23,6 +23,6 @@ export const sections: Section[] = [
   { key: '', label: 'Get Started', icon: LayoutDashboard },
   { key: 'design-system', label: 'Design System', icon: Palette },
   { key: 'brand', label: 'Brand', icon: BookOpen },
-  { key: 'components', label: 'Components', icon: Blocks },
+  { key: 'composition', label: 'Composition', icon: Blocks },
   { key: 'integrations', label: 'Integrations', icon: Plug },
 ];

@@ -1,0 +1,5 @@
+{
+  "title": "Composition",
+  "root": true,
+  "pages": ["index", "columns"]
+}
