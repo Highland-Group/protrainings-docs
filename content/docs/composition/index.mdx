@@ -1,22 +1,30 @@
 ---
-title: Composition Overview
-description: How pages are composed — the three block classes, the rules that govern them, and what is in scope for v1.
+title: Compsition Overview
+description: How pillar pages are composed — what blocks are and three block classes. 
 owner: drew
 status: draft
 ---
 
-Pages on the ProTrainings site are composed from blocks. This section documents what a block is, the three classes blocks fall into, and the rules that decide which class a new block belongs to.
+This section documents what a block is, the three classes blocks fall into, and the rules that decide which class a new block belongs to.
 
-The organizing question is **who supplies the content**. That single axis predicts implementation cost more reliably than visual similarity does, and it is what the three classes below are named for.
+The organizing question is **who supplies the content**. 
 
+## What a block is
+
+A block is a reusable component that defines how content looks on a page and allows editors to change what it says and somtimes modify it's color or what media it displays. On ProTrainings, **pillar pages** are built from blocks that can be chosen and modified by editors.
+
+To keep the admin experience easy and flexible, we're organizing blocks by three different jobs that allow users to:
+- Select a branded layout as a page section with editable contents on the page
+- Create layouts and editorial grids with simple blocks and rich text elements that are unique to a particular instance
+- Define content to be displayed on many pages but managed in one central source of truth: Either the system itself via a query (e.g. display a course, or a group of courses, posts, etc.) or editable content that is modified once and updated in all palcements. 
 
 ## Three classes of blocks
 
 | Class | Who supplies content | Who controls arrangement |
 | --- | --- | --- |
-| **Columns** | Editor composes | Editor, within fixed widths |
+| **Columns** | Editor composes | Editor, within fixed widths, design sets rules and supplies nestable blocks |
 | **Brand Layouts** | Editor fills | Design |
-| **Centralized Content** | The system | Design |
+| **Centralized Objects** | The system and/or Editors | Design |
 
 
 ### Columns 
